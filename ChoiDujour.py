@@ -4,13 +4,18 @@ import struct
 import json
 import binascii
 import gzip
-import urllib2
-from StringIO import StringIO
+from io import StringIO
 import subprocess
 import hashlib
 import tempfile
 import shutil
 import platform
+try:
+    from urllib2 import urlopen, Request, HTTPError
+except ImportError:
+    xrange = range
+    from urllib.request import urlopen, Request
+    from urllib.error import HTTPError
 
 if platform.system() == 'Windows':
     import win32con
@@ -114,7 +119,7 @@ try:
             sys.exit('Please specify input firmware file/folder!')
         else:
             sys.exit('Only one input firmware file/folder argument is allowed, you gave ' + str(len(inputFiles)))
-except SystemExit, e:
+except SystemExit as e:
     if e.code is not None:
         print_usage()
     raise
@@ -159,11 +164,11 @@ def fetch_url_bytes(url, gzipped=True):
         url = 'http:' + url[6:]
 
     print('Making a request to URL ' + url)
-    request = urllib2.Request(url)
+    request = Request(url)
     if gzipped:
         request.add_header('Accept-encoding', 'gzip')
 
-    response = urllib2.urlopen(request)
+    response = urlopen(request)
     if response.info().get('Content-Encoding') == 'gzip':
         buf = StringIO(response.read())
         f = gzip.GzipFile(fileobj=buf)
@@ -176,7 +181,7 @@ def download_large_file(url, outFilename):
         url = 'http:' + url[6:]
 
     print('Downloading file from URL ' + url)
-    remote_file = urllib2.urlopen(url)
+    remote_file = urlopen(url)
     total_size = None
     header = None
     try:
@@ -516,7 +521,7 @@ for currDir, subdirs, files in os.walk(upd_dir_abs):
 
         ncaInfoLines = call_hactool(["-i", "--intype=nca", currFile]).splitlines()
         ncaId = get_sha256_file_digest(currFile)
-        ncaId = ncaId[:len(ncaId)/2]
+        ncaId = ncaId[:len(ncaId)//2]
 
         titleId = find_line_starting(ncaInfoLines, "Title ID:")
         contentType = find_line_starting(ncaInfoLines, "Content Type:")
@@ -730,7 +735,7 @@ try:
         patchesJsonUrl += '.json'
 
         jayson = json.loads(fetch_url_bytes(patchesJsonUrl), object_hook=deunicodify_hook)
-    except urllib2.HTTPError, e:
+    except HTTPError as e:
         if e.code != 404:
             raise
         else:
